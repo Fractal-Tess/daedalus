@@ -6,8 +6,8 @@ use daedalus_config::{AppConfig, ConfigStore, ResolvedConfig};
 use daedalus_core::{DaedalusError, Result, looks_like_model_file, normalize_path, now_utc};
 use daedalus_db::{CatalogDb, LibraryItemInsert};
 use daedalus_domain::{
-    DownloadRequest, ImportRequest, Job, JobKind, JobStatus, LibraryItem, ModelKind, ServiceHealth,
-    SourceInfo, SourceKind, SourceRef,
+    DownloadRequest, ImportRequest, Job, JobKind, JobStatus, LibraryItem, ModelKind, ModelSummary,
+    SearchQuery, SearchResult, ServiceHealth, SourceInfo, SourceKind, SourceModelBundle, SourceRef,
 };
 use daedalus_downloads::{PlacementInput, compute_managed_path};
 use daedalus_sources::CivitaiAdapter;
@@ -92,13 +92,7 @@ impl DaedalusService {
     }
 
     pub fn list_sources(&self) -> Result<Vec<SourceInfo>> {
-        let config = self.current_config()?;
-        let civitai = CivitaiAdapter::new(
-            config.sources.civitai.api_base_url,
-            config.sources.civitai.web_base_url,
-            config.sources.civitai.enabled,
-        );
-        Ok(vec![civitai.info()])
+        Ok(vec![self.civitai_adapter()?.info()])
     }
 
     pub fn list_library_items(&self) -> Result<Vec<LibraryItem>> {
@@ -261,6 +255,14 @@ impl DaedalusService {
         self.current_config()?.resolved()
     }
 
+    pub fn search_civitai_models(&self, query: String, limit: usize) -> Result<SearchResult<ModelSummary>> {
+        self.civitai_adapter()?.search_models_blocking(SearchQuery { query, limit })
+    }
+
+    pub fn fetch_civitai_model(&self, model_id: &str) -> Result<SourceModelBundle> {
+        self.civitai_adapter()?.fetch_model_blocking(model_id)
+    }
+
     pub fn infer_kind_from_path(&self, path: &Path) -> Result<ModelKind> {
         let resolved = self.resolved_config()?;
         for (kind, root) in &resolved.model_paths {
@@ -293,6 +295,16 @@ impl DaedalusService {
             .read()
             .map_err(|_| DaedalusError::Other("db lock poisoned".to_string()))?
             .clone())
+    }
+
+    fn civitai_adapter(&self) -> Result<CivitaiAdapter> {
+        let config = self.current_config()?;
+        Ok(CivitaiAdapter::new(
+            config.sources.civitai.api_base_url,
+            config.sources.civitai.web_base_url,
+            config.sources.civitai.enabled,
+            Some(config.sources.civitai.api_token),
+        ))
     }
 }
 

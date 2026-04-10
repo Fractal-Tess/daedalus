@@ -9,4 +9,6 @@ authors.workspace = true
 async-trait.workspace = true
 daedalus-core = { path = "../daedalus-core" }
 daedalus-domain = { path = "../daedalus-domain" }
+reqwest.workspace = true
 serde.workspace = true
+serde_json.workspace = true

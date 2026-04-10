@@ -751,7 +751,9 @@ dependencies = [
  "async-trait",
  "daedalus-core",
  "daedalus-domain",
+ "reqwest",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

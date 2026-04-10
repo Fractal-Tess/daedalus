@@ -10,7 +10,7 @@ use axum::{Json, Router};
 use daedalus_core::DaedalusError;
 use daedalus_domain::{ConfigUpdateResponse, DownloadRequest, ImportRequest, SearchResult};
 use daedalus_service::DaedalusService;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 #[derive(Clone)]
 pub struct ApiState {
@@ -102,26 +102,22 @@ struct SearchParams {
     limit: Option<usize>,
 }
 
-#[derive(Debug, Serialize)]
-struct NotReadyResponse {
-    detail: String,
-}
-
-async fn civitai_search(Query(params): Query<SearchParams>) -> ApiResult<Json<SearchResult<daedalus_domain::ModelSummary>>> {
-    let _query = params.q.trim();
-    let _limit = params.limit.unwrap_or(20);
-    Ok(Json(SearchResult {
-        items: Vec::new(),
-        total: 0,
-        next_page: None,
-    }))
-}
-
-async fn civitai_model_detail(Path(id): Path<String>) -> ApiResult<Json<NotReadyResponse>> {
-    Err(ApiError::new(
-        StatusCode::NOT_IMPLEMENTED,
-        format!("Civitai model detail is not implemented yet for id {id}"),
+async fn civitai_search(
+    State(state): State<ApiState>,
+    Query(params): Query<SearchParams>,
+) -> ApiResult<Json<SearchResult<daedalus_domain::ModelSummary>>> {
+    Ok(Json(
+        state
+            .service
+            .search_civitai_models(params.q, params.limit.unwrap_or(20))?,
     ))
+}
+
+async fn civitai_model_detail(
+    State(state): State<ApiState>,
+    Path(id): Path<String>,
+) -> ApiResult<Json<daedalus_domain::SourceModelBundle>> {
+    Ok(Json(state.service.fetch_civitai_model(&id)?))
 }
 
 async fn queue_download(
