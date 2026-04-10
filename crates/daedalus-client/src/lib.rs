@@ -1,6 +1,6 @@
 use daedalus_config::AppConfig;
 use daedalus_core::{DaedalusError, Result};
-use daedalus_domain::{Job, LibraryItem, ServiceHealth};
+use daedalus_domain::{Job, LibraryItem, ModelSummary, SearchResult, ServiceHealth, SourceModelBundle};
 
 #[derive(Debug, Clone)]
 pub struct DaedalusClient {
@@ -51,6 +51,29 @@ impl DaedalusClient {
 
     pub fn rescan_library(&self) -> Result<Job> {
         self.post_empty("/library/rescan")
+    }
+
+    pub fn search_civitai_models(&self, query: &str, limit: usize) -> Result<SearchResult<ModelSummary>> {
+        let url = format!("{}{}", self.base_url, "/sources/civitai/search");
+        let response = self
+            .http
+            .get(url)
+            .query(&[("q", query), ("limit", &limit.to_string())])
+            .send()
+            .map_err(|err| DaedalusError::Http(err.to_string()))?;
+        if !response.status().is_success() {
+            return Err(DaedalusError::Http(format!(
+                "request failed with status {}",
+                response.status()
+            )));
+        }
+        response
+            .json()
+            .map_err(|err| DaedalusError::Http(format!("failed to decode response: {err}")))
+    }
+
+    pub fn fetch_civitai_model(&self, model_id: &str) -> Result<SourceModelBundle> {
+        self.get(&format!("/sources/civitai/models/{model_id}"))
     }
 
     fn get<T: serde::de::DeserializeOwned>(&self, path: &str) -> Result<T> {

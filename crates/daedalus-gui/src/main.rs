@@ -5,7 +5,7 @@ use daedalus_config::{AppConfig, ConfigStore, GuiMode, ValidationReport};
 #[cfg(feature = "desktop")]
 use daedalus_core::Result;
 #[cfg(feature = "desktop")]
-use daedalus_domain::{Job, LibraryItem, ModelKind};
+use daedalus_domain::{Job, LibraryItem, ModelKind, ModelSummary, SourceModelBundle};
 #[cfg(feature = "desktop")]
 use daedalus_service::DaedalusService;
 
@@ -74,12 +74,27 @@ impl Backend {
             Self::Remote(client) => client.rescan_library(),
         }
     }
+
+    fn search_civitai_models(&self, query: &str, limit: usize) -> Result<Vec<ModelSummary>> {
+        match self {
+            Self::Embedded(service) => service.search_civitai_models(query.to_string(), limit).map(|result| result.items),
+            Self::Remote(client) => client.search_civitai_models(query, limit).map(|result| result.items),
+        }
+    }
+
+    fn fetch_civitai_model(&self, model_id: &str) -> Result<SourceModelBundle> {
+        match self {
+            Self::Embedded(service) => service.fetch_civitai_model(model_id),
+            Self::Remote(client) => client.fetch_civitai_model(model_id),
+        }
+    }
 }
 
 #[cfg(feature = "desktop")]
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum View {
     Library,
+    Discovery,
     Jobs,
     Settings,
 }
@@ -101,6 +116,9 @@ struct DaedalusApp {
     config_draft: AppConfig,
     library_items: Vec<LibraryItem>,
     jobs: Vec<Job>,
+    discovery_query: String,
+    discovery_results: Vec<ModelSummary>,
+    selected_remote_model: Option<SourceModelBundle>,
     active_view: View,
     selected_item_id: Option<i64>,
     selected_kind: Option<ModelKind>,
@@ -132,6 +150,9 @@ impl DaedalusApp {
             config,
             library_items: Vec::new(),
             jobs: Vec::new(),
+            discovery_query: String::new(),
+            discovery_results: Vec::new(),
+            selected_remote_model: None,
             active_view: View::Library,
             selected_item_id: None,
             selected_kind: None,
@@ -283,6 +304,7 @@ impl DaedalusApp {
 
         ui.horizontal(|ui| {
             ui.selectable_value(&mut self.active_view, View::Library, "Library");
+            ui.selectable_value(&mut self.active_view, View::Discovery, "Discovery");
             ui.selectable_value(&mut self.active_view, View::Jobs, "Jobs");
             ui.selectable_value(&mut self.active_view, View::Settings, "Settings");
         });
@@ -405,6 +427,114 @@ impl DaedalusApp {
         });
     }
 
+    fn render_discovery(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.label("Civitai query");
+            ui.text_edit_singleline(&mut self.discovery_query);
+            if ui.button("Search").clicked() {
+                match self.backend.search_civitai_models(&self.discovery_query, 20) {
+                    Ok(results) => {
+                        self.discovery_results = results;
+                        self.selected_remote_model = None;
+                        self.status_line = format!(
+                            "Loaded {} Civitai results",
+                            self.discovery_results.len()
+                        );
+                    }
+                    Err(err) => self.status_line = format!("Discovery search failed: {err}"),
+                }
+            }
+        });
+
+        ui.separator();
+        ui.columns(2, |columns| {
+            columns[0].vertical(|ui| {
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    if self.discovery_results.is_empty() {
+                        ui.label("Run a Civitai search to populate discovery results.");
+                    }
+
+                    for result in &self.discovery_results {
+                        if ui
+                            .selectable_label(
+                                self.selected_remote_model
+                                    .as_ref()
+                                    .map(|bundle| bundle.model.id == result.id)
+                                    .unwrap_or(false),
+                                format!("{} [{}]", result.title, result.model_kind.label()),
+                            )
+                            .clicked()
+                        {
+                            match self.backend.fetch_civitai_model(&result.id) {
+                                Ok(bundle) => {
+                                    self.status_line = format!("Loaded Civitai model {}", result.title);
+                                    self.selected_remote_model = Some(bundle);
+                                }
+                                Err(err) => {
+                                    self.status_line = format!("Failed to load model {}: {err}", result.id)
+                                }
+                            }
+                        }
+                        if let Some(creator) = &result.creator {
+                            ui.small(format!("by {creator}"));
+                        }
+                        ui.separator();
+                    }
+                });
+            });
+
+            columns[1].vertical(|ui| {
+                ui.heading("Model Detail");
+                ui.separator();
+                if let Some(bundle) = &self.selected_remote_model {
+                    ui.label(format!("Name: {}", bundle.model.title));
+                    if let Some(creator) = &bundle.model.creator {
+                        ui.label(format!("Creator: {creator}"));
+                    }
+                    if let Some(source_url) = &bundle.model.source_url {
+                        ui.label(format!("URL: {source_url}"));
+                    }
+                    if let Some(description) = &bundle.description {
+                        ui.collapsing("Description", |ui| {
+                            ui.label(description);
+                        });
+                    }
+                    if !bundle.tags.is_empty() {
+                        ui.label(format!("Tags: {}", bundle.tags.join(", ")));
+                    }
+                    ui.separator();
+                    ui.label(format!("Versions: {}", bundle.versions.len()));
+                    egui::ScrollArea::vertical().show(ui, |ui| {
+                        for version in &bundle.versions {
+                            ui.group(|ui| {
+                                ui.label(&version.version_name);
+                                if let Some(base_model) = &version.base_model {
+                                    ui.small(format!("Base model: {base_model}"));
+                                }
+                                ui.small(format!(
+                                    "{} files, {} previews",
+                                    version.files.len(),
+                                    version.previews.len()
+                                ));
+                                for file in version.files.iter().take(3) {
+                                    ui.small(format!(
+                                        "{}{}",
+                                        file.filename,
+                                        file.size_bytes
+                                            .map(|size| format!(" ({:.1} MB)", size as f64 / 1024.0 / 1024.0))
+                                            .unwrap_or_default()
+                                    ));
+                                }
+                            });
+                        }
+                    });
+                } else {
+                    ui.label("Select a discovery result to inspect versions and files.");
+                }
+            });
+        });
+    }
+
     fn render_settings(&mut self, ui: &mut egui::Ui) {
         let validation = self
             .config_draft
@@ -509,6 +639,7 @@ impl eframe::App for DaedalusApp {
 
         egui::CentralPanel::default().show(ctx, |ui| match self.active_view {
             View::Library => self.render_library(ui),
+            View::Discovery => self.render_discovery(ui),
             View::Jobs => self.render_jobs(ui),
             View::Settings => self.render_settings(ui),
         });
