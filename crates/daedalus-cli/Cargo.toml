@@ -1,0 +1,13 @@
+[package]
+name = "daedalus-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+clap.workspace = true
+daedalus-config = { path = "../daedalus-config" }
+daedalus-domain = { path = "../daedalus-domain" }
+daedalus-service = { path = "../daedalus-service" }
+serde_json.workspace = true

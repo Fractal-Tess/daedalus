@@ -1,0 +1,15 @@
+[package]
+name = "daedalus-db"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+chrono.workspace = true
+daedalus-core = { path = "../daedalus-core" }
+daedalus-domain = { path = "../daedalus-domain" }
+rusqlite.workspace = true
+
+[dev-dependencies]
+tempfile = "3.23.0"

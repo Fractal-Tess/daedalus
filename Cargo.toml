@@ -1,0 +1,32 @@
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+license = "MIT"
+version = "0.1.0"
+authors = ["OpenAI Codex"]
+
+[workspace.dependencies]
+async-stream = "0.3.6"
+async-trait = "0.1.89"
+axum = { version = "0.8.6", features = ["macros"] }
+chrono = { version = "0.4.42", features = ["serde"] }
+clap = { version = "4.5.48", features = ["derive"] }
+directories = "5.0.1"
+egui = "0.33.0"
+eframe = { version = "0.33.0", default-features = false, features = ["default_fonts", "glow", "x11", "wayland"] }
+futures-core = "0.3.31"
+reqwest = { version = "0.12.24", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+rusqlite = { version = "0.37.0", features = ["bundled"] }
+sanitize-filename = "0.6.0"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+shellexpand = "3.1.1"
+thiserror = "2.0.17"
+tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread", "signal"] }
+toml = "0.9.7"
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.20", features = ["env-filter", "fmt"] }
+walkdir = "2.5.0"

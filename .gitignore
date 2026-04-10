@@ -1,0 +1,7 @@
+/target
+/.direnv
+/.envrc
+*.db
+*.db-*
+*.sqlite
+*.sqlite3

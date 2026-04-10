@@ -1,0 +1,20 @@
+[package]
+name = "daedalus-service"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+chrono.workspace = true
+daedalus-config = { path = "../daedalus-config" }
+daedalus-core = { path = "../daedalus-core" }
+daedalus-db = { path = "../daedalus-db" }
+daedalus-domain = { path = "../daedalus-domain" }
+daedalus-downloads = { path = "../daedalus-downloads" }
+daedalus-sources = { path = "../daedalus-sources" }
+tracing.workspace = true
+walkdir.workspace = true
+
+[dev-dependencies]
+tempfile = "3.23.0"

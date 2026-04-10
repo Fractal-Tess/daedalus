@@ -1,0 +1,12 @@
+[package]
+name = "daedalus-sources"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+daedalus-core = { path = "../daedalus-core" }
+daedalus-domain = { path = "../daedalus-domain" }
+serde.workspace = true
