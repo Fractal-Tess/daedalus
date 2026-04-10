@@ -311,6 +311,7 @@ impl CatalogDb {
         id: i64,
         status: JobStatus,
         progress: f32,
+        summary: Option<&str>,
         error_summary: Option<&str>,
     ) -> Result<Option<Job>> {
         let conn = self.open_connection()?;
@@ -331,15 +332,17 @@ impl CatalogDb {
             SET
                 status = ?2,
                 progress = ?3,
-                error_summary = COALESCE(?4, error_summary),
-                started_at = COALESCE(?5, started_at),
-                finished_at = COALESCE(?6, finished_at)
+                summary = COALESCE(?4, summary),
+                error_summary = COALESCE(?5, error_summary),
+                started_at = COALESCE(?6, started_at),
+                finished_at = COALESCE(?7, finished_at)
             WHERE id = ?1
             "#,
             params![
                 id,
                 job_status_to_str(status),
                 progress,
+                summary,
                 error_summary,
                 started_at,
                 finished_at

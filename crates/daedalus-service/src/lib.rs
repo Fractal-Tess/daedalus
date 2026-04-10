@@ -185,7 +185,7 @@ impl DaedalusService {
     pub fn rescan_library(&self) -> Result<Job> {
         let db = self.db()?;
         let mut job = db.create_job(JobKind::Rescan, "Rescanning configured model directories")?;
-        let _ = db.update_job_status(job.id, JobStatus::Running, 0.05, None)?;
+        let _ = db.update_job_status(job.id, JobStatus::Running, 0.05, None, None)?;
 
         let resolved = self.resolved_config()?;
         let mut scanned = 0usize;
@@ -226,11 +226,10 @@ impl DaedalusService {
         }
 
         let summary = format!("Rescanned configured model directories ({scanned} files)");
-        let _ = db.update_job_status(job.id, JobStatus::Completed, 1.0, None)?;
+        let _ = db.update_job_status(job.id, JobStatus::Completed, 1.0, Some(&summary), None)?;
         job = db
             .get_job(job.id)?
             .ok_or_else(|| DaedalusError::Database("rescan job disappeared".to_string()))?;
-        job.summary = summary;
         Ok(job)
     }
 
@@ -246,7 +245,8 @@ impl DaedalusService {
     }
 
     pub fn cancel_job(&self, id: i64) -> Result<Option<Job>> {
-        self.db()?.update_job_status(id, JobStatus::Cancelled, 0.0, None)
+        self.db()?
+            .update_job_status(id, JobStatus::Cancelled, 0.0, Some("Job cancelled"), None)
     }
 
     pub fn list_jobs(&self) -> Result<Vec<Job>> {

@@ -26,6 +26,13 @@ impl ApiState {
 pub fn router(service: DaedalusService) -> Router {
     let state = ApiState::new(service);
     Router::new()
+        .merge(api_routes())
+        .nest("/api/v1", api_routes())
+        .with_state(state)
+}
+
+fn api_routes() -> Router<ApiState> {
+    Router::new()
         .route("/health", get(health))
         .route("/config", get(get_config).put(update_config))
         .route("/library/items", get(list_library_items))
@@ -40,7 +47,6 @@ pub fn router(service: DaedalusService) -> Router {
         .route("/jobs", get(list_jobs))
         .route("/jobs/{id}", get(get_job))
         .route("/events", get(events))
-        .with_state(state)
 }
 
 async fn health(State(state): State<ApiState>) -> ApiResult<Json<daedalus_domain::ServiceHealth>> {

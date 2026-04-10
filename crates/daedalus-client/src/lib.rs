@@ -1,6 +1,6 @@
 use daedalus_config::AppConfig;
 use daedalus_core::{DaedalusError, Result};
-use daedalus_domain::{LibraryItem, ServiceHealth};
+use daedalus_domain::{Job, LibraryItem, ServiceHealth};
 
 #[derive(Debug, Clone)]
 pub struct DaedalusClient {
@@ -45,11 +45,37 @@ impl DaedalusClient {
         self.get("/library/items")
     }
 
+    pub fn list_jobs(&self) -> Result<Vec<Job>> {
+        self.get("/jobs")
+    }
+
+    pub fn rescan_library(&self) -> Result<Job> {
+        self.post_empty("/library/rescan")
+    }
+
     fn get<T: serde::de::DeserializeOwned>(&self, path: &str) -> Result<T> {
         let url = format!("{}{}", self.base_url, path);
         let response = self
             .http
             .get(url)
+            .send()
+            .map_err(|err| DaedalusError::Http(err.to_string()))?;
+        if !response.status().is_success() {
+            return Err(DaedalusError::Http(format!(
+                "request failed with status {}",
+                response.status()
+            )));
+        }
+        response
+            .json()
+            .map_err(|err| DaedalusError::Http(format!("failed to decode response: {err}")))
+    }
+
+    fn post_empty<T: serde::de::DeserializeOwned>(&self, path: &str) -> Result<T> {
+        let url = format!("{}{}", self.base_url, path);
+        let response = self
+            .http
+            .post(url)
             .send()
             .map_err(|err| DaedalusError::Http(err.to_string()))?;
         if !response.status().is_success() {
